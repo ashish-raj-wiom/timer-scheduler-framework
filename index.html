@@ -148,7 +148,7 @@
   /* field schema strip */
   .schema {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 1px;
     background: var(--line);
     border: 1px solid var(--line);
@@ -329,7 +329,7 @@
   </div>
 
   <h2>The model</h2>
-  <p>Every scheduler is defined by five fields. Multiple schedulers can target the same trigger state — there's no need to chain them into one row; two independent schedulers on "Arrived at site" (one RT, one Nudge) is the normal shape, not a special case.</p>
+  <p>Every scheduler is defined by six fields. Multiple schedulers can target the same trigger state — there's no need to chain them into one row; two independent schedulers on "Arrived at site" (one RT, one Nudge) is the normal shape, not a special case.</p>
 
   <div class="schema-scroll">
     <div class="schema">
@@ -358,6 +358,11 @@
         <div class="name">Action</div>
         <div class="desc">What the scheduler actually does when it fires — one of three types, below</div>
       </div>
+      <div class="field">
+        <div class="n">06</div>
+        <div class="name">Feature Flag</div>
+        <div class="desc">Every scheduler ships behind its own on/off switch, independent of the others.</div>
+      </div>
     </div>
   </div>
 
@@ -383,7 +388,7 @@
 
   <div class="principle">
     <div class="tag">how to size action states</div>
-    <p><strong>Nudge / System Intervention</strong> → singleton set (just the Trigger State). The message has to match the exact state the task is stuck in — a wider set would blur which one actually applies.<br><strong>RT</strong> → span from the Trigger State forward through every state up to (not including) the point RT stops being legal, per the base principle. RT doesn't care which of those states the task is stuck in, only that it hasn't crossed the investment line yet.</p>
+    <p><strong>Nudge / System Intervention</strong> → singleton set (just the Trigger State). The message has to match the exact state the task is stuck in — a wider set would blur which one actually applies.<br><strong>RT</strong> → span from the Trigger State forward, but only across states that have no scheduler of their own — up to the point RT stops being legal (fee payment), whichever comes first. Once every state in a chain has its own scheduler, singleton is correct for RT too. Arrived-at-Site's RT still spans three states because the two after it aren't independently covered; Awaiting-Partner-Assignment and Partner-Assigned stay singleton because their neighbors now cover themselves.</p>
   </div>
 
   <h2>RT implementation checklist</h2>
@@ -409,21 +414,23 @@
   <p class="note">What this means for the new Arrived-at-Site RT scheduler: the reroute pipeline (cooldown → quality signal → re-route → re-arm) already exists — it's what the installation-retry path already calls once triggered. What's missing isn't machinery, it's a correctly-scoped trigger: today only the old, mis-anchored timeout can kick that pipeline off, and it fires from the wrong point in the journey. The new scheduler's job is to trigger the same existing pipeline from the right point, not build a second one.</p>
 
   <h2>Schedulers</h2>
-  <p class="note">One row per scheduler.</p>
+  <p class="note">One row per scheduler. Every scheduler — live or proposed — gets its own feature flag.</p>
 
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Stage</th><th>Trigger State</th><th>ETA</th><th>Action States</th><th>Action</th></tr></thead>
+      <thead><tr><th>Stage</th><th>Trigger State</th><th>ETA</th><th>Action States</th><th>Action</th><th>Feature Flag</th></tr></thead>
       <tbody>
-        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">ASSIGNED (allocation)</td><td class="mono">2h</td><td class="mono">ASSIGNED (allocation) <span class="dash">— see note</span></td><td><span class="mark retrigger">RT</span></td></tr>
-        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td class="mono">1h</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td><span class="mark nudge">Nudge</span></td></tr>
-        <tr><td>2. Awaiting Customer Confirmation</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td class="mono">TBD</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td><span class="mark ops">System Intervention</span></td></tr>
-        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">1h</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark nudge">Nudge</span></td></tr>
-        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark nudge">Nudge</span></td></tr>
-        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">TBD</td><td class="mono">ARRIVED_AT_SITE</td><td><span class="mark nudge">Nudge</span></td></tr>
-        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">x hrs</td><td class="mono">ARRIVED_AT_SITE, INSTALLATION_IN_PROGRESS_PRE_FEE, FEE_COLLECTION_PENDING</td><td><span class="mark retrigger">RT</span></td></tr>
-        <tr><td>6. Fee Paid</td><td class="mono">IN_PROGRESS_POST_FEE</td><td class="mono">TBD</td><td class="mono">IN_PROGRESS_POST_FEE</td><td><span class="mark nudge">Nudge only</span></td></tr>
-        <tr><td>7. Awaiting Confirmation Code</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td class="mono">4h</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td><span class="mark nudge">Nudge</span></td></tr>
+        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">ASSIGNED (allocation)</td><td class="mono">2h</td><td class="mono">ASSIGNED (allocation) <span class="dash">— see note</span></td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_ASSIGNED_RT_ENABLED</td></tr>
+        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td class="mono">1h</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td><span class="mark nudge">Nudge</span></td><td class="mono">SCHED_AWAITING_SLOT_PROPOSAL_NUDGE_ENABLED</td></tr>
+        <tr><td>2. Awaiting Customer Confirmation</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td class="mono">TBD</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td><span class="mark ops">System Intervention</span></td><td class="mono">SCHED_AWAITING_CUSTOMER_SLOT_CONFIRMATION_SI_ENABLED</td></tr>
+        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">1h</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark nudge">Nudge</span></td><td class="mono">SCHED_AWAITING_TECHNICIAN_ASSIGNMENT_NUDGE_ENABLED</td></tr>
+        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">TBD</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_AWAITING_TECHNICIAN_ASSIGNMENT_RT_ENABLED</td></tr>
+        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark nudge">Nudge</span></td><td class="mono">SCHED_TECHNICIAN_ASSIGNED_NUDGE_ENABLED</td></tr>
+        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_TECHNICIAN_ASSIGNED_RT_ENABLED</td></tr>
+        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">TBD</td><td class="mono">ARRIVED_AT_SITE</td><td><span class="mark nudge">Nudge</span></td><td class="mono">SCHED_ARRIVED_AT_SITE_NUDGE_ENABLED</td></tr>
+        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">x hrs</td><td class="mono">ARRIVED_AT_SITE, INSTALLATION_IN_PROGRESS_PRE_FEE, FEE_COLLECTION_PENDING</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_ARRIVED_AT_SITE_RT_ENABLED</td></tr>
+        <tr><td>6. Fee Paid</td><td class="mono">IN_PROGRESS_POST_FEE</td><td class="mono">TBD</td><td class="mono">IN_PROGRESS_POST_FEE</td><td><span class="mark nudge">Nudge only</span></td><td class="mono">SCHED_INSTALLATION_IN_PROGRESS_POST_FEE_NUDGE_ENABLED</td></tr>
+        <tr><td>7. Awaiting Confirmation Code</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td class="mono">4h</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td><span class="mark nudge">Nudge</span></td><td class="mono">SCHED_AWAITING_CUSTOMER_OTP_NUDGE_ENABLED</td></tr>
       </tbody>
     </table>
   </div>
@@ -431,8 +438,8 @@
 
   <div class="principle">
     <div class="tag">deliberate no-RT states</div>
-    <strong>5 of 7 stages: Awaiting Customer Confirmation, Awaiting Partner Assignment, Partner Assigned, Fee Paid, Awaiting Confirmation Code.</strong>
-    <p>RT stays allowed only at Awaiting Slot Proposal and Arrived at Site. The base principle (investment lock-in) only accounts for the last two of those five — Fee Paid and Awaiting Confirmation Code, both after fee payment. The other three are No-RT by separate choice, before any investment has been made — worth writing down the reason if there is one beyond preferring Nudge/System Intervention over churn this early.</p>
+    <strong>3 of 7 stages, down from 5: Awaiting Customer Confirmation, Fee Paid, Awaiting Confirmation Code.</strong>
+    <p>RT is now allowed at Awaiting Slot Proposal, Awaiting Partner Assignment, Partner Assigned, and Arrived at Site — the middle two moved from No-RT to RT-enabled in this revision. The base principle (investment lock-in) accounts for the last two of the remaining three — Fee Paid and Awaiting Confirmation Code, both after fee payment. Awaiting Customer Confirmation stays No-RT for a different reason: the partner isn't the bottleneck there, so reassigning wouldn't fix anything — System Intervention targets the actual blocker (the customer) instead.</p>
   </div>
 
   <footer>
