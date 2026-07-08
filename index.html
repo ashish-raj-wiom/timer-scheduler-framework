@@ -407,8 +407,8 @@
   </div>
 
   <div class="principle">
-    <div class="tag">nudge already feeds the attention model — corrected 2026-07-08</div>
-    <p>An earlier version of this doc claimed installation had no attention integration and that a Nudge's Outbox Event would need to drive one. That was wrong. Verification against the backend confirms every live Nudge already updates the per-job "needs attention" signal — a version, type, reason, and timestamp — using the reminder's own name as the reason (not a dedicated reason-code enum like some other job types use, but functionally live and correct today). The partner app's task list already reflects a Nudge firing; that part isn't broken and needs no new build. The Outbox Event is a separate, additive requirement — for other backend services to observe a Nudge firing — and has no bearing on the attention update, which runs synchronously in the same call today and will keep doing so regardless of whether the outbox publish is added alongside it.</p>
+    <div class="tag">nudge already feeds the attention model</div>
+    <p>Verification against the backend confirms every live Nudge already updates the per-job "needs attention" signal — a version, type, reason, and timestamp — using the reminder's own name as the reason (not a dedicated reason-code enum like some other job types use, but functionally live and correct today). The partner app's task list already reflects a Nudge firing; that part isn't broken and needs no new build. The Outbox Event is a separate, additive requirement — for other backend services to observe a Nudge firing — and has no bearing on the attention update, which runs synchronously in the same call today and will keep doing so regardless of whether the outbox publish is added alongside it.</p>
   </div>
 
   <h2>RT implementation checklist</h2>
