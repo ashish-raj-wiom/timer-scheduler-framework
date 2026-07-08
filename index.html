@@ -328,8 +328,13 @@
     <p>Once the customer has paid the security deposit <em>and</em> the field partner has completed ID verification, RT (reassignment) comes off the table for every later stage. Taking the job away at that point voids real work already done by both sides, leaving the partner with nothing to show for the effort already put in. "Arrived at site" is the last stage where RT is still allowed — everything from fee payment onward is nudge-only.</p>
   </div>
 
+  <div class="principle">
+    <div class="tag">a common service, not per-service duplication</div>
+    <p>As it stands today, each owning service runs its own independently-implemented scheduling component — same shape, duplicated code, no shared library. This framework describes a capability meant to be genuinely common: one scheduling engine (arm on Trigger State entry, check Action States at ETA, dispatch the configured Action) that any owning service registers against, instead of yet another service re-implementing the same arm/check/fire logic. Building this as single-service infrastructure — even to serve every new scheduler in this pass — would repeat the exact duplication pattern this framework should be closing, not extend it. Where this shared engine actually lives (a common library the services import, or a small standalone scheduling service they all call) is an open platform decision, not assumed here.</p>
+  </div>
+
   <h2>The model</h2>
-  <p>Every scheduler is defined by six fields. Multiple schedulers can target the same trigger state — there's no need to chain them into one row; two independent schedulers on "Arrived at site" (one RT, one Nudge) is the normal shape, not a special case.</p>
+  <p>Every scheduler is defined by seven fields. Multiple schedulers can target the same trigger state — there's no need to chain them into one row; two independent schedulers on "Arrived at site" (one RT, one Nudge) is the normal shape, not a special case.</p>
 
   <div class="schema-scroll">
     <div class="schema">
@@ -363,6 +368,11 @@
         <div class="name">Feature Flag</div>
         <div class="desc">Scoped to RT schedulers — the action with real blast radius, since it pulls the job away from a partner. Nudge/System Intervention are comms-only and don't get one.</div>
       </div>
+      <div class="field">
+        <div class="n">07</div>
+        <div class="name">Outbox Event</div>
+        <div class="desc">Every fire — any Action type — publishes a domain event through the owning service's existing outbox, so other services can subscribe without polling. RT already satisfies this by construction. Nudge/System Intervention publish nothing today — this is the one genuinely new required behavior for those two types.</div>
+      </div>
     </div>
   </div>
 
@@ -391,6 +401,11 @@
     <p><strong>Nudge / System Intervention</strong> → singleton set (just the Trigger State). The message has to match the exact state the task is stuck in — a wider set would blur which one actually applies.<br><strong>RT</strong> → span from the Trigger State forward, but only across states that have no scheduler of their own — up to the point RT stops being legal (fee payment), whichever comes first. Once every state in a chain has its own scheduler, singleton is correct for RT too. Arrived-at-Site's RT still spans three states because the two after it aren't independently covered; Awaiting-Partner-Assignment and Partner-Assigned stay singleton because their neighbors now cover themselves.</p>
   </div>
 
+  <div class="principle">
+    <div class="tag">nudge feeds the attention model</div>
+    <p>The backend already computes a per-job "needs attention" signal — a version, type, reason, and timestamp — that the partner app's task list reads to decide what to highlight and sort to the top. Today that mechanism has real reason codes for some job types but not for installation. Every Nudge scheduler's Outbox Event should be what bumps this signal for its job (a new installation-specific attention reason per Nudge scheduler, e.g. "technician not yet assigned," "arrived but not progressing") — the partner shouldn't need to open a separate reminder feed to notice something needs their attention; it should already be surfaced where they're looking. Whether the attention update happens synchronously in the same transaction as the Outbox Event, or asynchronously by a subscriber reading that event, is an implementation choice for whoever owns the attention pipeline — not fixed here.</p>
+  </div>
+
   <h2>RT implementation checklist</h2>
   <p>RT isn't one action — it's a sequence. It's already implemented today for the existing acceptance-timeout and installation-retry paths, and both do the same seven things. A new RT scheduler doesn't need new machinery, just a correctly-scoped trigger into this existing pipeline.</p>
 
@@ -414,23 +429,23 @@
   <p class="note">What this means for the new Arrived-at-Site RT scheduler: the reroute pipeline (cooldown → quality signal → re-route → re-arm) already exists — it's what the installation-retry path already calls once triggered. What's missing isn't machinery, it's a correctly-scoped trigger: today only the old, mis-anchored timeout can kick that pipeline off, and it fires from the wrong point in the journey. The new scheduler's job is to trigger the same existing pipeline from the right point, not build a second one.</p>
 
   <h2>Schedulers</h2>
-  <p class="note">One row per scheduler. Feature flags are scoped to RT schedulers only — Nudge/System Intervention don't carry the blast radius that justifies one.</p>
+  <p class="note">One row per scheduler. Feature flags are scoped to RT schedulers only — Nudge/System Intervention don't carry the blast radius that justifies one. Every row now needs an Outbox Event — for the already-live Nudge rows this is new required work (retrofit), not something shipping fresh.</p>
 
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Stage</th><th>Trigger State</th><th>ETA</th><th>Action States</th><th>Action</th><th>Feature Flag</th></tr></thead>
+      <thead><tr><th>Stage</th><th>Trigger State</th><th>ETA</th><th>Action States</th><th>Action</th><th>Feature Flag</th><th>Outbox Event</th></tr></thead>
       <tbody>
-        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">ASSIGNED (allocation)</td><td class="mono">2h</td><td class="mono">ASSIGNED (allocation) <span class="dash">— see note</span></td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_ASSIGNED_RT_ENABLED</td></tr>
-        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td class="mono">1h</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td></tr>
-        <tr><td>2. Awaiting Customer Confirmation</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td class="mono">TBD</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td><span class="mark ops">System Intervention</span></td><td class="mono dash">—</td></tr>
-        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">1h</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td></tr>
-        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">TBD</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_AWAITING_TECHNICIAN_ASSIGNMENT_RT_ENABLED</td></tr>
-        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td></tr>
-        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_TECHNICIAN_ASSIGNED_RT_ENABLED</td></tr>
-        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">TBD</td><td class="mono">ARRIVED_AT_SITE</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td></tr>
-        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">x hrs</td><td class="mono">ARRIVED_AT_SITE, INSTALLATION_IN_PROGRESS_PRE_FEE, FEE_COLLECTION_PENDING</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_ARRIVED_AT_SITE_RT_ENABLED</td></tr>
-        <tr><td>6. Fee Paid</td><td class="mono">IN_PROGRESS_POST_FEE</td><td class="mono">TBD</td><td class="mono">IN_PROGRESS_POST_FEE</td><td><span class="mark nudge">Nudge only</span></td><td class="mono dash">—</td></tr>
-        <tr><td>7. Awaiting Confirmation Code</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td class="mono">4h</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td></tr>
+        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">ASSIGNED (allocation)</td><td class="mono">2h</td><td class="mono">ASSIGNED (allocation) <span class="dash">— see note</span></td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_ASSIGNED_RT_ENABLED</td><td>Already satisfied</td></tr>
+        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td class="mono">1h</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>Missing — retrofit</td></tr>
+        <tr><td>2. Awaiting Customer Confirmation</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td class="mono">TBD</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td><span class="mark ops">System Intervention</span></td><td class="mono dash">—</td><td>New, ships with it</td></tr>
+        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">1h</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>Missing — retrofit</td></tr>
+        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">TBD</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_AWAITING_TECHNICIAN_ASSIGNMENT_RT_ENABLED</td><td>New, ships with it</td></tr>
+        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>New, ships with it</td></tr>
+        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_TECHNICIAN_ASSIGNED_RT_ENABLED</td><td>New, ships with it</td></tr>
+        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">TBD</td><td class="mono">ARRIVED_AT_SITE</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>New, ships with it</td></tr>
+        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">x hrs</td><td class="mono">ARRIVED_AT_SITE, INSTALLATION_IN_PROGRESS_PRE_FEE, FEE_COLLECTION_PENDING</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_ARRIVED_AT_SITE_RT_ENABLED</td><td>Already satisfied</td></tr>
+        <tr><td>6. Fee Paid</td><td class="mono">IN_PROGRESS_POST_FEE</td><td class="mono">TBD</td><td class="mono">IN_PROGRESS_POST_FEE</td><td><span class="mark nudge">Nudge only</span></td><td class="mono dash">—</td><td>New, ships with it</td></tr>
+        <tr><td>7. Awaiting Confirmation Code</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td class="mono">4h</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>Missing — retrofit</td></tr>
       </tbody>
     </table>
   </div>
