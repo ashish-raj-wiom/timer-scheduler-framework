@@ -182,7 +182,7 @@
 
   .schema-scroll { overflow-x: auto; }
 
-  @media (max-width: 720px) {
+  @media (max-width: 900px) {
     .schema { grid-template-columns: repeat(2, 1fr); }
   }
 
@@ -253,7 +253,7 @@
   .status-tag.live { color: var(--rtyes); }
 
   .table-scroll { overflow-x: auto; border: 1px solid var(--line-strong); margin: 0.9rem 0 1.5rem; }
-  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 0.86rem; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 0.86rem; }
   th, td { text-align: left; padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--line); vertical-align: top; }
   thead th { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-dim); background: var(--surface); border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
   tbody tr:last-child td { border-bottom: none; }
@@ -279,7 +279,7 @@
       <span>·</span>
       <span>approach document</span>
       <span>·</span>
-      <span>2026-07-07</span>
+      <span>2026-07-08</span>
     </div>
     <h1>Timer/scheduler framework</h1>
     <p class="subtitle">Breaking one blind timeout into per-stage schedulers that actually know the ground truth of where a task is stuck.</p>
@@ -301,7 +301,7 @@
   </div>
 
   <h2>The model</h2>
-  <p>Every scheduler is defined by four fields. Multiple schedulers can target the same state — there's no need to chain them into one row; two independent schedulers on the same state (one RT, one Nudge) is the normal shape, not a special case.</p>
+  <p>Every scheduler is defined by five fields. Multiple schedulers can target the same trigger state — there's no need to chain them into one row; two independent schedulers on "Arrived at site" (one RT, one Nudge) is the normal shape, not a special case.</p>
 
   <div class="schema-scroll">
     <div class="schema">
@@ -312,16 +312,21 @@
       </div>
       <div class="field">
         <div class="n">02</div>
-        <div class="name">State</div>
-        <div class="desc">The single state it's anchored on, in that service's own state machine</div>
+        <div class="name">Trigger State</div>
+        <div class="desc">The state that arms the scheduler — the clock starts counting from the moment the task enters this state</div>
       </div>
       <div class="field">
         <div class="n">03</div>
         <div class="name">ETA</div>
-        <div class="desc">Duration counted from when the scheduler turns on for that state — state entry is the default clock start</div>
+        <div class="desc">Duration counted from Trigger State entry</div>
       </div>
       <div class="field">
         <div class="n">04</div>
+        <div class="name">Action States</div>
+        <div class="desc">The states in which the action actually fires. At ETA, if the task is still in one of these, perform the Action — otherwise ignore. A singleton set behaves like a same-state check; a wider set behaves like a gate-check. Size it to fit the Action.</div>
+      </div>
+      <div class="field">
+        <div class="n">05</div>
         <div class="name">Action</div>
         <div class="desc">What the scheduler actually does when it fires — one of three types, below</div>
       </div>
@@ -348,24 +353,31 @@
   </div>
   <p class="note">There could be more action types in the future — this isn't a closed list.</p>
 
-  <h2>Action per state</h2>
-  <p class="note">One row per stage/state — where a state has more than one scheduler, the relevant action columns are filled in on the same row.</p>
+  <div class="principle">
+    <div class="tag">how to size action states</div>
+    <p><strong>Nudge / System Intervention</strong> → singleton set (just the Trigger State). The message has to match the exact state the task is stuck in — a wider set would blur which one actually applies.<br><strong>RT</strong> → span from the Trigger State forward through every state up to (not including) the point RT stops being legal, per the base principle. RT doesn't care which of those states the task is stuck in, only that it hasn't crossed the investment line yet.</p>
+  </div>
+
+  <h2>Schedulers</h2>
+  <p class="note">One row per scheduler.</p>
 
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Stage</th><th>State</th><th>Nudge</th><th>System Intervention</th><th>RT</th><th>ETA</th></tr></thead>
+      <thead><tr><th>Stage</th><th>Trigger State</th><th>ETA</th><th>Action States</th><th>Action</th></tr></thead>
       <tbody>
-        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">ASSIGNED (allocation)</td><td class="dash">—</td><td class="dash">—</td><td><span class="mark retrigger">✓</span></td><td class="mono">2h</td></tr>
-        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td><span class="mark nudge">✓</span></td><td class="dash">—</td><td class="dash">—</td><td class="mono">1h</td></tr>
-        <tr><td>2. Awaiting Customer Confirmation</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td class="dash">—</td><td><span class="mark ops">✓</span></td><td class="dash">—</td><td class="mono">TBD</td></tr>
-        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark nudge">✓</span></td><td class="dash">—</td><td class="dash">—</td><td class="mono">1h</td></tr>
-        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark nudge">✓</span></td><td class="dash">—</td><td class="dash">—</td><td class="mono">TBD</td></tr>
-        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td><span class="mark nudge">✓</span></td><td class="dash">—</td><td><span class="mark retrigger">✓</span></td><td class="mono">TBD</td></tr>
-        <tr><td>6. Fee Paid</td><td class="mono">IN_PROGRESS_POST_FEE</td><td><span class="mark nudge">✓ (nudge only)</span></td><td class="dash">—</td><td class="dash">—</td><td class="mono">TBD</td></tr>
-        <tr><td>7. Awaiting Confirmation Code</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td><span class="mark nudge">✓</span></td><td class="dash">—</td><td class="dash">—</td><td class="mono">4h</td></tr>
+        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">ASSIGNED (allocation)</td><td class="mono">2h</td><td class="mono">ASSIGNED (allocation) <span class="dash">— see note</span></td><td><span class="mark retrigger">RT</span></td></tr>
+        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td class="mono">1h</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td><span class="mark nudge">Nudge</span></td></tr>
+        <tr><td>2. Awaiting Customer Confirmation</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td class="mono">TBD</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td><span class="mark ops">System Intervention</span></td></tr>
+        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">1h</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark nudge">Nudge</span></td></tr>
+        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark nudge">Nudge</span></td></tr>
+        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">TBD</td><td class="mono">ARRIVED_AT_SITE</td><td><span class="mark nudge">Nudge</span></td></tr>
+        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">x hrs</td><td class="mono">ARRIVED_AT_SITE, INSTALLATION_IN_PROGRESS_PRE_FEE, FEE_COLLECTION_PENDING</td><td><span class="mark retrigger">RT</span></td></tr>
+        <tr><td>6. Fee Paid</td><td class="mono">IN_PROGRESS_POST_FEE</td><td class="mono">TBD</td><td class="mono">IN_PROGRESS_POST_FEE</td><td><span class="mark nudge">Nudge only</span></td></tr>
+        <tr><td>7. Awaiting Confirmation Code</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td class="mono">4h</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td><span class="mark nudge">Nudge</span></td></tr>
       </tbody>
     </table>
   </div>
+  <p class="note">Note on the allocation-side RT (stage 1): its Action States is currently a singleton, but the same widening logic used for the Arrived-at-Site RT row suggests it should extend to the next allocation state as well, since RT should still be legal there. Unresolved complication: the allocation service can't see fee payment on its own — that next state persists all the way through to job completion regardless of when the fee is actually paid, so there's no natural stopping point yet. Needs a decision before this row can be finalized.</p>
 
   <div class="principle">
     <div class="tag">deliberate no-RT states</div>
@@ -374,7 +386,7 @@
   </div>
 
   <footer>
-    Approach agreed 2026-07-07.
+    Approach agreed 2026-07-07. Last updated 2026-07-08.
   </footer>
 
 </div>
