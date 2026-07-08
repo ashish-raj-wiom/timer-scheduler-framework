@@ -361,7 +361,7 @@
       <div class="field">
         <div class="n">06</div>
         <div class="name">Feature Flag</div>
-        <div class="desc">Every scheduler ships behind its own on/off switch, independent of the others.</div>
+        <div class="desc">Scoped to RT schedulers — the action with real blast radius, since it pulls the job away from a partner. Nudge/System Intervention are comms-only and don't get one.</div>
       </div>
     </div>
   </div>
@@ -414,23 +414,23 @@
   <p class="note">What this means for the new Arrived-at-Site RT scheduler: the reroute pipeline (cooldown → quality signal → re-route → re-arm) already exists — it's what the installation-retry path already calls once triggered. What's missing isn't machinery, it's a correctly-scoped trigger: today only the old, mis-anchored timeout can kick that pipeline off, and it fires from the wrong point in the journey. The new scheduler's job is to trigger the same existing pipeline from the right point, not build a second one.</p>
 
   <h2>Schedulers</h2>
-  <p class="note">One row per scheduler. Every scheduler — live or proposed — gets its own feature flag.</p>
+  <p class="note">One row per scheduler. Feature flags are scoped to RT schedulers only — Nudge/System Intervention don't carry the blast radius that justifies one.</p>
 
   <div class="table-scroll">
     <table>
       <thead><tr><th>Stage</th><th>Trigger State</th><th>ETA</th><th>Action States</th><th>Action</th><th>Feature Flag</th></tr></thead>
       <tbody>
         <tr><td>1. Awaiting Slot Proposal</td><td class="mono">ASSIGNED (allocation)</td><td class="mono">2h</td><td class="mono">ASSIGNED (allocation) <span class="dash">— see note</span></td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_ASSIGNED_RT_ENABLED</td></tr>
-        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td class="mono">1h</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td><span class="mark nudge">Nudge</span></td><td class="mono">SCHED_AWAITING_SLOT_PROPOSAL_NUDGE_ENABLED</td></tr>
-        <tr><td>2. Awaiting Customer Confirmation</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td class="mono">TBD</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td><span class="mark ops">System Intervention</span></td><td class="mono">SCHED_AWAITING_CUSTOMER_SLOT_CONFIRMATION_SI_ENABLED</td></tr>
-        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">1h</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark nudge">Nudge</span></td><td class="mono">SCHED_AWAITING_TECHNICIAN_ASSIGNMENT_NUDGE_ENABLED</td></tr>
+        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td class="mono">1h</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td></tr>
+        <tr><td>2. Awaiting Customer Confirmation</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td class="mono">TBD</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td><span class="mark ops">System Intervention</span></td><td class="mono dash">—</td></tr>
+        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">1h</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td></tr>
         <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">TBD</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_AWAITING_TECHNICIAN_ASSIGNMENT_RT_ENABLED</td></tr>
-        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark nudge">Nudge</span></td><td class="mono">SCHED_TECHNICIAN_ASSIGNED_NUDGE_ENABLED</td></tr>
+        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td></tr>
         <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_TECHNICIAN_ASSIGNED_RT_ENABLED</td></tr>
-        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">TBD</td><td class="mono">ARRIVED_AT_SITE</td><td><span class="mark nudge">Nudge</span></td><td class="mono">SCHED_ARRIVED_AT_SITE_NUDGE_ENABLED</td></tr>
+        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">TBD</td><td class="mono">ARRIVED_AT_SITE</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td></tr>
         <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">x hrs</td><td class="mono">ARRIVED_AT_SITE, INSTALLATION_IN_PROGRESS_PRE_FEE, FEE_COLLECTION_PENDING</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_ARRIVED_AT_SITE_RT_ENABLED</td></tr>
-        <tr><td>6. Fee Paid</td><td class="mono">IN_PROGRESS_POST_FEE</td><td class="mono">TBD</td><td class="mono">IN_PROGRESS_POST_FEE</td><td><span class="mark nudge">Nudge only</span></td><td class="mono">SCHED_INSTALLATION_IN_PROGRESS_POST_FEE_NUDGE_ENABLED</td></tr>
-        <tr><td>7. Awaiting Confirmation Code</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td class="mono">4h</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td><span class="mark nudge">Nudge</span></td><td class="mono">SCHED_AWAITING_CUSTOMER_OTP_NUDGE_ENABLED</td></tr>
+        <tr><td>6. Fee Paid</td><td class="mono">IN_PROGRESS_POST_FEE</td><td class="mono">TBD</td><td class="mono">IN_PROGRESS_POST_FEE</td><td><span class="mark nudge">Nudge only</span></td><td class="mono dash">—</td></tr>
+        <tr><td>7. Awaiting Confirmation Code</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td class="mono">4h</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td></tr>
       </tbody>
     </table>
   </div>
