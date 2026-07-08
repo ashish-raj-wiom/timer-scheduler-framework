@@ -351,7 +351,7 @@
       <div class="field">
         <div class="n">03</div>
         <div class="name">ETA</div>
-        <div class="desc">Duration counted from Trigger State entry</div>
+        <div class="desc">Duration counted from Trigger State entry. Always a named, configurable parameter, never hardcoded — verified against the backend that the equivalent live timers already work this way. New ETAs use a naming convention scoped to each scheduler (Trigger State + Action), distinct from the naming already used for the live ones — flagged for engineering to align during implementation.</div>
       </div>
       <div class="field">
         <div class="n">04</div>
@@ -433,22 +433,23 @@
 
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Stage</th><th>Trigger State</th><th>ETA</th><th>Action States</th><th>Action</th><th>Feature Flag</th><th>Outbox Event</th></tr></thead>
+      <thead><tr><th>Stage</th><th>Trigger State</th><th>ETA (parameter)</th><th>Action States</th><th>Action</th><th>Feature Flag</th><th>Outbox Event</th></tr></thead>
       <tbody>
-        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">ASSIGNED (allocation)</td><td class="mono">2h</td><td class="mono">ASSIGNED (allocation) <span class="dash">— see note</span></td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_ASSIGNED_RT_ENABLED</td><td>Already satisfied</td></tr>
-        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td class="mono">1h</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>Missing — retrofit</td></tr>
-        <tr><td>2. Awaiting Customer Confirmation</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td class="mono">TBD</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td><span class="mark ops">System Intervention</span></td><td class="mono dash">—</td><td>New, ships with it</td></tr>
-        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">1h</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>Missing — retrofit</td></tr>
-        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">TBD</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_AWAITING_TECHNICIAN_ASSIGNMENT_RT_ENABLED</td><td>New, ships with it</td></tr>
-        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>New, ships with it</td></tr>
-        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_TECHNICIAN_ASSIGNED_RT_ENABLED</td><td>New, ships with it</td></tr>
-        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">TBD</td><td class="mono">ARRIVED_AT_SITE</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>New, ships with it</td></tr>
-        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">x hrs</td><td class="mono">ARRIVED_AT_SITE, INSTALLATION_IN_PROGRESS_PRE_FEE, FEE_COLLECTION_PENDING</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_ARRIVED_AT_SITE_RT_ENABLED</td><td>Already satisfied</td></tr>
-        <tr><td>6. Fee Paid</td><td class="mono">IN_PROGRESS_POST_FEE</td><td class="mono">TBD</td><td class="mono">IN_PROGRESS_POST_FEE</td><td><span class="mark nudge">Nudge only</span></td><td class="mono dash">—</td><td>New, ships with it</td></tr>
-        <tr><td>7. Awaiting Confirmation Code</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td class="mono">4h</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>Missing — retrofit</td></tr>
+        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">ASSIGNED (allocation)</td><td class="mono">2h (configurable, already live)</td><td class="mono">ASSIGNED (allocation) <span class="dash">— see note</span></td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_ASSIGNED_RT_ENABLED</td><td>Already satisfied</td></tr>
+        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td class="mono">1h (configurable, already live)</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>Missing — retrofit</td></tr>
+        <tr><td>2. Awaiting Customer Confirmation</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td class="mono">TBD (new parameter)</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td><span class="mark ops">System Intervention</span></td><td class="mono dash">—</td><td>New, ships with it</td></tr>
+        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">1h (configurable, already live)</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>Missing — retrofit</td></tr>
+        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td class="mono">TBD (new parameter)</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_AWAITING_TECHNICIAN_ASSIGNMENT_RT_ENABLED</td><td>New, ships with it</td></tr>
+        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD (new parameter)</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>New, ships with it</td></tr>
+        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td class="mono">TBD (new parameter)</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_TECHNICIAN_ASSIGNED_RT_ENABLED</td><td>New, ships with it</td></tr>
+        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">TBD (new parameter)</td><td class="mono">ARRIVED_AT_SITE</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>New, ships with it</td></tr>
+        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td class="mono">x hrs (new parameter)</td><td class="mono">ARRIVED_AT_SITE, INSTALLATION_IN_PROGRESS_PRE_FEE, FEE_COLLECTION_PENDING</td><td><span class="mark retrigger">RT</span></td><td class="mono">SCHED_ARRIVED_AT_SITE_RT_ENABLED</td><td>Already satisfied</td></tr>
+        <tr><td>6. Fee Paid</td><td class="mono">IN_PROGRESS_POST_FEE</td><td class="mono">TBD (new parameter)</td><td class="mono">IN_PROGRESS_POST_FEE</td><td><span class="mark nudge">Nudge only</span></td><td class="mono dash">—</td><td>New, ships with it</td></tr>
+        <tr><td>7. Awaiting Confirmation Code</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td class="mono">4h (configurable, already live)</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td><span class="mark nudge">Nudge</span></td><td class="mono dash">—</td><td>Missing — retrofit</td></tr>
       </tbody>
     </table>
   </div>
+  <p class="note">Note on ETA parameters: the 4 already-live rows are already configurable in the backend today (verified, not assumed). The 6 new/proposed rows would get their own new parameter, named per scheduler (Trigger State + Action) — a different naming shape than what the live ones use, flagged for engineering to align during implementation rather than assumed to match automatically.</p>
   <p class="note">Note on the allocation-side RT (stage 1): its Action States is currently a singleton, but the same widening logic used for the Arrived-at-Site RT row suggests it should extend to the next allocation state as well, since RT should still be legal there. Unresolved complication: the allocation service can't see fee payment on its own — that next state persists all the way through to job completion regardless of when the fee is actually paid, so there's no natural stopping point yet. Needs a decision before this row can be finalized.</p>
 
   <div class="principle">
