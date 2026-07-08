@@ -252,6 +252,34 @@
   }
   .status-tag.live { color: var(--rtyes); }
 
+  ol.checklist {
+    list-style: none;
+    counter-reset: cl;
+    padding: 0;
+    margin: 1rem 0 1.5rem;
+    border: 1px solid var(--line-strong);
+  }
+  ol.checklist > li {
+    counter-increment: cl;
+    display: grid;
+    grid-template-columns: 1.8rem 1fr;
+    gap: 0.75rem;
+    padding: 0.8rem 1.1rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  ol.checklist > li:last-child { border-bottom: none; }
+  ol.checklist > li::before {
+    content: counter(cl);
+    font-family: var(--mono);
+    font-weight: 700;
+    color: var(--accent);
+  }
+  ol.checklist strong { display: block; margin-bottom: 0.15rem; }
+  ol.checklist p { margin: 0; max-width: none; font-size: 0.9rem; }
+  ol.checklist ul.sub { margin: 0.5rem 0 0; padding-left: 1.2rem; font-size: 0.88rem; list-style: disc; }
+  ol.checklist ul.sub li { display: list-item; padding: 0.15rem 0 0.15rem 0.3rem; border: none; background: none; }
+
   .table-scroll { overflow-x: auto; border: 1px solid var(--line-strong); margin: 0.9rem 0 1.5rem; }
   table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 0.86rem; }
   th, td { text-align: left; padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -357,6 +385,28 @@
     <div class="tag">how to size action states</div>
     <p><strong>Nudge / System Intervention</strong> → singleton set (just the Trigger State). The message has to match the exact state the task is stuck in — a wider set would blur which one actually applies.<br><strong>RT</strong> → span from the Trigger State forward through every state up to (not including) the point RT stops being legal, per the base principle. RT doesn't care which of those states the task is stuck in, only that it hasn't crossed the investment line yet.</p>
   </div>
+
+  <h2>RT implementation checklist</h2>
+  <p>RT isn't one action — it's a sequence. It's already implemented today for the existing acceptance-timeout and installation-retry paths, and both do the same seven things. A new RT scheduler doesn't need new machinery, just a correctly-scoped trigger into this existing pipeline.</p>
+
+  <ol class="checklist">
+    <li><div><strong>Cancel the current task</strong><p>The candidate/allocation moves to a terminal-for-this-attempt state.</p></div></li>
+    <li><div><strong>Free the allocation</strong><p>State goes back to unassigned, partner cleared.</p></div></li>
+    <li><div><strong>Penalize the timed-out partner, two ways</strong><p>A cooldown (won't be re-offered this same job immediately) and an assignment-count increment (ping-pong guard, so it can't be re-routed back to them either).</p></div></li>
+    <li><div><strong>Emit a quality/enforcement signal</strong><p>This partner's timeout becomes a scored event on their record. RT is never silent to the partner's standing.</p></div></li>
+    <li><div><strong>Cancel any lingering timer</strong><p>Tied to the old assignment, before a new one is armed.</p></div></li>
+    <li><div><strong>Re-invoke the routing engine</strong><p>Find a new eligible partner, respecting the cooldown just applied.</p></div></li>
+    <li><div><strong>Two explicit outcomes, both handled</strong>
+      <ul class="sub">
+        <li><strong>Success</strong> — new partner found: a fresh RT watchdog is armed on the new assignment. RT is not one-shot; it re-arms itself every time it succeeds.</li>
+        <li><strong>Failure</strong> — no eligible partner right now: retry if under the retry cap, otherwise escalate to a routing-failure state that needs manual attention.</li>
+      </ul>
+    </div></li>
+  </ol>
+
+  <p class="note">Architecture note: this is an async, idempotent, guarded round-trip between services, not one atomic function call. Every step re-checks the entity is still in the expected state before acting (a partner that acted in the gap between timer-arm and timer-fire is a graceful no-op), and there's a backstop sweep in case the round-trip itself is lost.</p>
+
+  <p class="note">What this means for the new Arrived-at-Site RT scheduler: the reroute pipeline (cooldown → quality signal → re-route → re-arm) already exists — it's what the installation-retry path already calls once triggered. What's missing isn't machinery, it's a correctly-scoped trigger: today only the old, mis-anchored timeout can kick that pipeline off, and it fires from the wrong point in the journey. The new scheduler's job is to trigger the same existing pipeline from the right point, not build a second one.</p>
 
   <h2>Schedulers</h2>
   <p class="note">One row per scheduler.</p>
