@@ -1,0 +1,380 @@
+<title>Installation Flow — Timer/Scheduler Framework</title>
+<style>
+  :root {
+    --bg: #eef0ee;
+    --surface: #e4e7e3;
+    --ink: #171a17;
+    --ink-dim: #4c5450;
+    --line: #c9cec7;
+    --line-strong: #a9b0a6;
+    --accent: #216b64;
+    --accent-ink: #ffffff;
+    --nudge: #3b6bc9;
+    --retrigger: #a8701a;
+    --ops: #7350b0;
+    --rtyes: #2f7d4f;
+    --rtyes-bg: #dcece1;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, "Segoe UI", "Helvetica Neue", Arial, system-ui, sans-serif;
+    --radius: 3px;
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #121513;
+    --surface: #191d1a;
+    --ink: #e7eae6;
+    --ink-dim: #97a099;
+    --line: #2b322d;
+    --line-strong: #3d453e;
+    --accent: #5fbdb1;
+    --accent-ink: #0b1211;
+    --nudge: #8fb3ec;
+    --retrigger: #e0bb63;
+    --ops: #c3aae8;
+    --rtyes: #6fc98f;
+    --rtyes-bg: #17261d;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121513;
+      --surface: #191d1a;
+      --ink: #e7eae6;
+      --ink-dim: #97a099;
+      --line: #2b322d;
+      --line-strong: #3d453e;
+      --accent: #5fbdb1;
+      --accent-ink: #0b1211;
+      --nudge: #8fb3ec;
+      --retrigger: #e0bb63;
+      --ops: #c3aae8;
+      --rtyes: #6fc98f;
+      --rtyes-bg: #17261d;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 6rem;
+  }
+
+  header.masthead {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 1.25rem;
+    margin-bottom: 2.25rem;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: clamp(1.4rem, 4vw, 2.05rem);
+    letter-spacing: -0.01em;
+    margin: 0.5rem 0 0.35rem;
+    text-wrap: balance;
+  }
+
+  .subtitle { color: var(--ink-dim); font-size: 1.02rem; max-width: 64ch; }
+
+  .status-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    margin-top: 0.85rem;
+    color: var(--ink-dim);
+  }
+
+  .status-line .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+  }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 1.02rem;
+    letter-spacing: 0.01em;
+    margin: 3rem 0 0.9rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  p { margin: 0.75rem 0; max-width: 68ch; }
+  a { color: var(--accent); }
+  code { font-family: var(--mono); font-size: 0.88em; }
+
+  .note { font-size: 0.85rem; color: var(--ink-dim); max-width: none; }
+
+  /* problem / fix callouts */
+  .principle {
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    padding: 0.9rem 1.15rem;
+    margin: 1rem 0 1.5rem;
+  }
+  .principle .tag {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+  }
+  .principle strong { display: block; margin: 0.15rem 0 0.4rem; font-size: 1rem; }
+  .principle p { margin: 0; max-width: none; }
+
+  /* field schema strip */
+  .schema {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin: 1.25rem 0 0.5rem;
+  }
+
+  .schema .field {
+    background: var(--surface);
+    padding: 0.9rem 0.85rem;
+  }
+
+  .schema .field .n {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--accent);
+    letter-spacing: 0.03em;
+  }
+
+  .schema .field .name {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 0.92rem;
+    margin: 0.3rem 0 0.35rem;
+  }
+
+  .schema .field .desc {
+    font-size: 0.76rem;
+    color: var(--ink-dim);
+    line-height: 1.45;
+  }
+
+  .schema-scroll { overflow-x: auto; }
+
+  @media (max-width: 720px) {
+    .schema { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* action type cards */
+  .types {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin: 1.25rem 0 1.5rem;
+  }
+
+  .type-card {
+    background: var(--surface);
+    padding: 1rem 1.1rem 1.1rem;
+    border-top: 3px solid var(--c);
+  }
+
+  .type-card .label {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--c);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .type-card .label::before {
+    content: "";
+    width: 8px; height: 8px;
+    background: var(--c);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .type-card p { font-size: 0.86rem; margin: 0.55rem 0 0; max-width: none; }
+  .type-card .today {
+    margin-top: 0.65rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--ink-dim);
+    padding-top: 0.55rem;
+    border-top: 1px dashed var(--line-strong);
+  }
+
+  .mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+  }
+  .mark::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .mark.nudge { color: var(--nudge); }
+  .mark.ops { color: var(--ops); }
+  .mark.retrigger { color: var(--retrigger); }
+  .dash { color: var(--ink-dim); }
+
+  .status-tag {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-left: auto;
+  }
+  .status-tag.live { color: var(--rtyes); }
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line-strong); margin: 0.9rem 0 1.5rem; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 0.86rem; }
+  th, td { text-align: left; padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-dim); background: var(--surface); border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.mono { font-family: var(--mono); font-size: 0.8rem; }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+    font-family: var(--mono);
+  }
+
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <span>installation flow</span>
+      <span>·</span>
+      <span>approach document</span>
+      <span>·</span>
+      <span>2026-07-07</span>
+    </div>
+    <h1>Timer/scheduler framework</h1>
+    <p class="subtitle">Breaking one blind timeout into per-stage schedulers that actually know the ground truth of where a task is stuck.</p>
+    <div class="status-line"><span class="dot"></span> Stages assigned — several schedulers still proposed, not yet built</div>
+  </header>
+
+  <h2>The problem</h2>
+  <p>Installation covers a lot of ground before it's done: wiring, config, speed test, fee collection, device linkage, account creation. If the job is pulled away from the field partner mid-sequence, that investment is void and the partner is left worse off for something outside their control.</p>
+  <p>That's the old timeout. It doesn't care about ground reality — it just says <em>if the job isn't active within the deadline, retrigger.</em> One flat clock, blind to which stage the task is actually sitting in.</p>
+  <p>That blindness causes a second, sharper problem: during a customer-awaiting stage, it's the <strong>customer's</strong> move, not the partner's — but the old timeout keeps ticking against the partner anyway. The partner did nothing wrong and can still lose the job.</p>
+
+  <h2>The fix, in principle</h2>
+  <p>Break the one blind timer into <strong>per-stage schedulers</strong>, each carrying the action that actually fits that stage's ground truth — instead of one clock that treats every stage the same.</p>
+
+  <div class="principle">
+    <div class="tag">base principle</div>
+    <strong>No RT once both sides have invested.</strong>
+    <p>Once the customer has paid the security deposit <em>and</em> the field partner has completed ID verification, RT (reassignment) comes off the table for every later stage. Taking the job away at that point voids real work already done by both sides, leaving the partner with nothing to show for the effort already put in. "Arrived at site" is the last stage where RT is still allowed — everything from fee payment onward is nudge-only.</p>
+  </div>
+
+  <h2>The model</h2>
+  <p>Every scheduler is defined by four fields. Multiple schedulers can target the same state — there's no need to chain them into one row; two independent schedulers on the same state (one RT, one Nudge) is the normal shape, not a special case.</p>
+
+  <div class="schema-scroll">
+    <div class="schema">
+      <div class="field">
+        <div class="n">01</div>
+        <div class="name">Service</div>
+        <div class="desc">Owning service that runs the check</div>
+      </div>
+      <div class="field">
+        <div class="n">02</div>
+        <div class="name">State</div>
+        <div class="desc">The single state it's anchored on, in that service's own state machine</div>
+      </div>
+      <div class="field">
+        <div class="n">03</div>
+        <div class="name">ETA</div>
+        <div class="desc">Duration counted from when the scheduler turns on for that state — state entry is the default clock start</div>
+      </div>
+      <div class="field">
+        <div class="n">04</div>
+        <div class="name">Action</div>
+        <div class="desc">What the scheduler actually does when it fires — one of three types, below</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Action types</h2>
+
+  <div class="types">
+    <div class="type-card" style="--c: var(--retrigger)">
+      <div class="label">RT</div>
+      <p>Look for another available partner / reassign the job. Only valid before both sides have invested.</p>
+    </div>
+    <div class="type-card" style="--c: var(--nudge)">
+      <div class="label">Nudge</div>
+      <p>Notify the partner to take an action or ask for help. No state change.</p>
+      <div class="today">Channel (in-app / push / SMS / IVR) is a separate decision, made per-scheduler later.</div>
+    </div>
+    <div class="type-card" style="--c: var(--ops)">
+      <div class="label">System Intervention</div>
+      <p>Trigger an automated operational action outside the core state machine — targets whoever can actually unblock the step, which might be the customer, not the partner.</p>
+      <div class="today">Not live yet — e.g. a stuck customer-confirmation step → automated call to the customer</div>
+    </div>
+  </div>
+  <p class="note">There could be more action types in the future — this isn't a closed list.</p>
+
+  <h2>Action per state</h2>
+  <p class="note">One row per stage/state — where a state has more than one scheduler, the relevant action columns are filled in on the same row.</p>
+
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Stage</th><th>State</th><th>Nudge</th><th>System Intervention</th><th>RT</th><th>ETA</th></tr></thead>
+      <tbody>
+        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">ASSIGNED (allocation)</td><td class="dash">—</td><td class="dash">—</td><td><span class="mark retrigger">✓</span></td><td class="mono">2h</td></tr>
+        <tr><td>1. Awaiting Slot Proposal</td><td class="mono">AWAITING_SLOT_PROPOSAL (task)</td><td><span class="mark nudge">✓</span></td><td class="dash">—</td><td class="dash">—</td><td class="mono">1h</td></tr>
+        <tr><td>2. Awaiting Customer Confirmation</td><td class="mono">AWAITING_CUSTOMER_SLOT_CONFIRMATION</td><td class="dash">—</td><td><span class="mark ops">✓</span></td><td class="dash">—</td><td class="mono">TBD</td></tr>
+        <tr><td>3. Awaiting Partner Assignment</td><td class="mono">AWAITING_TECHNICIAN_ASSIGNMENT</td><td><span class="mark nudge">✓</span></td><td class="dash">—</td><td class="dash">—</td><td class="mono">1h</td></tr>
+        <tr><td>4. Partner Assigned</td><td class="mono">TECHNICIAN_ASSIGNED</td><td><span class="mark nudge">✓</span></td><td class="dash">—</td><td class="dash">—</td><td class="mono">TBD</td></tr>
+        <tr><td>5. Arrived at Site</td><td class="mono">ARRIVED_AT_SITE</td><td><span class="mark nudge">✓</span></td><td class="dash">—</td><td><span class="mark retrigger">✓</span></td><td class="mono">TBD</td></tr>
+        <tr><td>6. Fee Paid</td><td class="mono">IN_PROGRESS_POST_FEE</td><td><span class="mark nudge">✓ (nudge only)</span></td><td class="dash">—</td><td class="dash">—</td><td class="mono">TBD</td></tr>
+        <tr><td>7. Awaiting Confirmation Code</td><td class="mono">AWAITING_CUSTOMER_OTP</td><td><span class="mark nudge">✓</span></td><td class="dash">—</td><td class="dash">—</td><td class="mono">4h</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="principle">
+    <div class="tag">deliberate no-RT states</div>
+    <strong>5 of 7 stages: Awaiting Customer Confirmation, Awaiting Partner Assignment, Partner Assigned, Fee Paid, Awaiting Confirmation Code.</strong>
+    <p>RT stays allowed only at Awaiting Slot Proposal and Arrived at Site. The base principle (investment lock-in) only accounts for the last two of those five — Fee Paid and Awaiting Confirmation Code, both after fee payment. The other three are No-RT by separate choice, before any investment has been made — worth writing down the reason if there is one beyond preferring Nudge/System Intervention over churn this early.</p>
+  </div>
+
+  <footer>
+    Approach agreed 2026-07-07.
+  </footer>
+
+</div>
